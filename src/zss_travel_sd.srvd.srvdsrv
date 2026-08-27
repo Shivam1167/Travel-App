@@ -1,0 +1,16 @@
+@EndUserText.label: 'Travel Processor Service Definition'
+define service ZSS_TRAVEL_SD {
+  expose ZSS_TRAVEL_BO_PROJ       as Travel;
+  expose ZSS_BOOKING_BO_PROJ      as Booking;
+  expose ZSS_BOOKINGSUPP_BO_PROJ  as BookingSuppl;
+  expose /DMO/I_Agency            as Agency;
+  expose /DMO/I_Customer          as Customer;
+  expose I_Currency               as Currency;
+  expose /DMO/I_Carrier           as Carrier;
+  expose /DMO/I_Connection        as Connection;
+  expose /DMO/I_Flight            as Flight;
+  expose /DMO/I_Supplement        as Supplement;
+  expose /DMO/I_SupplementText    as SupplText;
+  expose /DMO/I_Overall_Status_VH as TravelStatus;
+  expose /DMO/I_Booking_Status_VH as BookStatus;
+}
