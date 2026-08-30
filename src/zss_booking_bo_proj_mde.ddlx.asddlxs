@@ -1,0 +1,24 @@
+@Metadata.layer: #CUSTOMER
+annotate entity ZSS_BOOKING_BO_PROJ
+    with 
+{
+//    TravelId;
+@UI.lineItem: [{ position: 10 }]
+    BookingId;
+@UI.lineItem: [{ position: 20 }]
+    BookingDate;
+@UI.lineItem: [{ position: 30 }]
+    CustomerId;
+@UI.lineItem: [{ position: 40 }]
+    CarrierId;
+@UI.lineItem: [{ position: 50 }]
+    ConnectionId;
+@UI.lineItem: [{ position: 60 }]
+    FlightDate;
+@UI.lineItem: [{ position: 70 }]
+      FlightPrice;
+//    CurrencyCode;
+//    BookingStatus;
+//    LastChangedAt;
+    
+}

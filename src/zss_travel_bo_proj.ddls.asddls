@@ -1,6 +1,8 @@
 @AccessControl.authorizationCheck: #NOT_REQUIRED
 @EndUserText.label: 'Travel Processor Root Entity'
 @Metadata.ignorePropagatedAnnotations: false
+@VDM.viewType: #CONSUMPTION
+@Metadata.allowExtensions: true
 define root view entity ZSS_TRAVEL_BO_PROJ as projection on ZSS_TRAVEL_BO
 {
     key TravelId,
@@ -18,5 +20,9 @@ define root view entity ZSS_TRAVEL_BO_PROJ as projection on ZSS_TRAVEL_BO
     _Booking: redirected to composition child ZSS_BOOKING_BO_PROJ,
     _Currency,
     _Customer,
-    _OverallStatus
+    _OverallStatus,
+    AgencyName,
+    CustomerName,
+    StatusText,
+    Minion
 }

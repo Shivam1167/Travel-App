@@ -2,6 +2,7 @@
 @EndUserText.label: 'Booking Projection'
 @Metadata.ignorePropagatedAnnotations: false
 @VDM.viewType: #CONSUMPTION
+@Metadata.allowExtensions: true
 define view entity ZSS_BOOKING_BO_PROJ as projection on ZSS_BOOKING_BO
 {
     key TravelId,
@@ -15,6 +16,9 @@ define view entity ZSS_BOOKING_BO_PROJ as projection on ZSS_BOOKING_BO
     CurrencyCode,
     BookingStatus,
     LastChangedAt,
+    BookingStatusText,
+    AirlineName,
+    CustomerName,
     /* Associations */
     _BookStatus,
     _BookSuppl: redirected to composition child ZSS_BOOKINGSUPP_BO_PROJ,
