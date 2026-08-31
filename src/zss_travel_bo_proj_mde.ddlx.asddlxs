@@ -57,6 +57,24 @@ annotate entity ZSS_TRAVEL_BO_PROJ with
           label: 'Bookings',
           targetElement: '_Booking' 
        
+       },
+       { 
+       
+          purpose: #HEADER,
+          type: #DATAPOINT_REFERENCE,
+          position: 10,
+          targetQualifier: 'priceData'
+          
+       },
+       
+       { 
+       
+          purpose: #HEADER,
+          type: #DATAPOINT_REFERENCE,
+          position: 20,
+          targetQualifier: 'statusData'
+       
+       
        }
        
   
@@ -83,6 +101,7 @@ annotate entity ZSS_TRAVEL_BO_PROJ with
   @UI.selectionField: [{ position: 40 }]
   @UI.lineItem: [{ position: 50 }]
   @UI.fieldGroup: [{ position: 20, qualifier: 'superman' }]
+  @UI.dataPoint: { qualifier: 'priceData', title: 'Total Cost of Travel'}
   TotalPrice;
   //@UI.lineItem: [{ position: 60 }]
   @UI.fieldGroup: [{ position: 30, qualifier: 'superman' }]
@@ -92,6 +111,7 @@ annotate entity ZSS_TRAVEL_BO_PROJ with
   @UI.selectionField: [{ position: 50 }]
   @UI.lineItem: [{ position: 70, importance: #HIGH, criticality: 'Minion' }]
   @UI.fieldGroup: [{ position: 40, qualifier: 'superman' }]
+  @UI.dataPoint: { qualifier: 'statusData', title: 'Travel Status', criticality: 'Minion'}
   OverallStatus;
 
 

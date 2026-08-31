@@ -2,6 +2,7 @@
 @EndUserText.label: 'Booking Supplement Projection Processor'
 @Metadata.ignorePropagatedAnnotations: false
 @VDM.viewType: #CONSUMPTION
+@Metadata.allowExtensions: true
 define view entity ZSS_BOOKINGSUPP_BO_PROJ as projection on ZSS_BOOKINGSUPP_BO
 {
     key TravelId,
