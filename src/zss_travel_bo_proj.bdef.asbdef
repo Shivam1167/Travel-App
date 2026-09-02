@@ -1,0 +1,29 @@
+projection;
+strict ( 2 );
+
+define behavior for ZSS_TRAVEL_BO_PROJ alias Travel
+{
+  use create;
+  use update;
+//  use delete;
+
+  use association _Booking { create; }
+}
+
+define behavior for ZSS_BOOKING_BO_PROJ alias Booking
+{
+  use update;
+  use delete;
+
+  use association _Travel;
+  use association _BookSuppl { create; }
+}
+
+define behavior for ZSS_BOOKINGSUPP_BO_PROJ alias BookSuppl
+{
+  use update;
+  use delete;
+
+  use association _Travel;
+  use association _Booking;
+}

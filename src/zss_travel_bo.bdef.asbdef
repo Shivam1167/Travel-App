@@ -1,0 +1,93 @@
+//greenfield where we want framework to generate basic impl. code
+managed implementation in class zbp_ss_travel_bo unique;
+//best practice which compile our code in strict mode 2
+strict ( 2 );
+
+//defining the behaviour definition
+define behavior for ZSS_TRAVEL_BO alias Travel
+//because f/w will create code for CRUD, tell f/w which db table it has to interact
+persistent table /dmo/travel_m
+//which entity is considered as super entity for lock mechanism
+lock master
+//AUTHORITY-CHECK to ensure that a valid user is performing tas on our Tx.
+authorization master ( instance )
+//to manage concurrency control
+etag master LastChangedAt
+{
+  //AUTHORITY-CHECK to ensure that a valid user is performing tas on our Tx.
+  create ( authorization : global );
+  update;
+  delete;
+//  field ( readonly ) TravelId;
+//  direct booking without a Travel is not possible
+  association _Booking { create; }
+
+  mapping for /dmo/travel_m{
+  travelid = travel_id;
+  agencyid = agency_id;
+  customerid = customer_id;
+  begindate = begin_date;
+  enddate = end_date;
+  totalprice = total_price;
+  bookingfee = booking_fee;
+  CurrencyCode = currency_code;
+  Description = description;
+  OverallStatus = overall_status;
+  CreatedBy = created_by;
+  CreatedAt = created_at;
+  LastChangedAt = last_changed_at;
+  LastChangedBy = last_changed_by;
+  }
+
+}
+
+define behavior for ZSS_BOOKING_BO alias Booking
+persistent table /dmo/booking_m
+lock dependent by _Travel
+authorization dependent by _Travel
+etag master LastChangedAt
+{
+  update;
+  delete;
+  field ( readonly ) TravelId, BookingId;
+  association _Travel;
+  association _BookSuppl { create; }
+
+  mapping for /dmo/booking_m{
+  TravelId = travel_id;
+  BookingId = booking_id;
+  CustomerId = customer_id;
+  CarrierId = carrier_id;
+  ConnectionId = connection_id;
+  FlightDate = flight_date;
+  FlightPrice = flight_price;
+  CurrencyCode = currency_code;
+  BookingStatus = booking_status;
+  LastChangedAt = last_changed_at;
+  }
+}
+
+
+define behavior for ZSS_BOOKINGSUPP_BO alias BookSuppl
+persistent table /dmo/booksuppl_m
+lock dependent by _Travel
+authorization dependent by _Travel
+etag master LastChangedAt
+{
+  update;
+  delete;
+  field ( readonly ) TravelId, BookingId;
+  association _Travel;
+  association _Booking;
+
+  mapping for /dmo/booksuppl_m{
+  travelid = travel_id;
+  BookingId = booking_id;
+  BookingSupplementId = booking_supplement_id;
+  SupplementId = supplement_id;
+  price = price;
+  CurrencyCode = currency_code;
+  LastChangedAt = last_changed_at;
+
+  }
+}
