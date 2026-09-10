@@ -13,6 +13,8 @@ lock master
 authorization master ( instance )
 //to manage concurrency control
 etag master LastChangedAt
+//early numbering to generate travel id
+early numbering
 {
   //AUTHORITY-CHECK to ensure that a valid user is performing tas on our Tx.
   create ( authorization : global );
@@ -46,6 +48,8 @@ persistent table /dmo/booking_m
 lock dependent by _Travel
 authorization dependent by _Travel
 etag master LastChangedAt
+//early numbering
+early numbering
 {
   update;
   delete;
@@ -73,6 +77,8 @@ persistent table /dmo/booksuppl_m
 lock dependent by _Travel
 authorization dependent by _Travel
 etag master LastChangedAt
+//early numbering
+early numbering
 {
   update;
   delete;
