@@ -58,7 +58,7 @@ early numbering
 {
   update;
   delete;
-  field ( readonly ) TravelId, BookingId;
+  field ( readonly ) TravelId;
   association _Travel;
   association _BookSuppl { create; }
 

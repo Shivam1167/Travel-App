@@ -26,7 +26,7 @@ define view entity ZSS_BOOKING_BO
                    {
 
                      entity.name: '/DMO/I_Customer',
-                     entity.element: 'CustomerId'
+                     entity.element: 'CustomerID'
 
                     }
 
