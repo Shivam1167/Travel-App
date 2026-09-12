@@ -23,7 +23,7 @@ association[1] to /DMO/I_Overall_Status_VH as _OverallStatus on
                 { 
                 
                   entity.name: '/DMO/I_Agency',
-                  entity.element: 'AgencyId'
+                  entity.element: 'AgencyID'
                 
                  }
                 
@@ -31,16 +31,15 @@ association[1] to /DMO/I_Overall_Status_VH as _OverallStatus on
     /dmo/travel_m.agency_id as AgencyId,
     _Agency.Name as AgencyName,
     @ObjectModel.text.element: [ 'CustomerName' ]
-    @Consumption.valueHelpDefinition: [ 
-                { 
-                
-                  entity.name: '/DMO/I_Customer',
-                  entity.element: 'CustomerID'
-                
-                 }
-                
-    ]
-    /dmo/travel_m.customer_id as CustomerId,
+    @Consumption.valueHelpDefinition: [
+  {
+    entity: {
+      name: '/DMO/I_Customer',
+      element: 'CustomerID'
+    }
+  }
+]
+/dmo/travel_m.customer_id as CustomerId,
     concat(_Customer.LastName, concat('', _Customer.FirstName)) as CustomerName,
     /dmo/travel_m.begin_date as BeginDate,
     /dmo/travel_m.end_date as EndDate,

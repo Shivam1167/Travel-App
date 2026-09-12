@@ -1,3 +1,5 @@
+
+
 CLASS lhc_Travel DEFINITION INHERITING FROM cl_abap_behavior_handler.
   PRIVATE SECTION.
 
@@ -119,49 +121,84 @@ CLASS lhc_Travel IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD earlynumbering_cba_Booking.
-  "Step1: define variable to get max booking id for given travel
+
+  "Step 1: Define variable to get max booking ID for given travel
   DATA max_booking_id TYPE /dmo/booking_id.
 
-  "Step2: Use select  query to get the bookings which are already added to the travel
-
+  "Step 2: Get existing bookings for the travel
   READ ENTITIES OF ZSS_TRAVEL_BO IN LOCAL MODE
-   entity travel by \_Booking
-   FROM CORRESPONDING #( entities )
-   link data(lt_bookings).
 
-  "Loop at travel records and assign booking id inside each travel
-  LOOP AT entities ASSIGNING FIELD-SYMBOL(<travel_group>) GROUP BY <travel_group>-TravelId.
+    ENTITY Travel BY \_Booking
 
-   ""Get the highest booking number for booking in this travel request
-   LOOP AT lt_bookings INTO DATA(ls_booking) USING key entity
-                                                       where source-TravelId = <travel_group>-TravelId.
-                 if max_booking_id < ls_booking-target-BookingId.
-                 max_booking_id = ls_booking-target-BookingId.
-                 ENDIF.
-                 ENDLOOP.
-   "Get the assigned booking number from incoming request
-   LOOP AT entities into data(ls_entity) USING key entity
-                                         where travelid = <travel_group>-TravelId.
-         LOOP AT ls_entity-%target into data(ls_target).
-         IF max_booking_id < ls_booking-target-BookingId.
-         max_booking_id = ls_booking-target-BookingId.
-         ENDIF.
-         ENDLOOP.
-         ENDLOOP.
+    FROM CORRESPONDING #( entities )
+
+    LINK DATA(lt_bookings).
 
 
-  "Loop at entities over all entries and assign a incremented booking id by 10
-  LOOP AT entities ASSIGNING FIELD-SYMBOL(<travel>) USING key entity
-                             where travelid = <travel_group>-TravelId.
-  LOOP AT <travel>-%target ASSIGNING FIELD-SYMBOL(<booking_wo_numbers>).
-   APPEND CORRESPONDING #( <booking_wo_numbers> ) to mapped-booking
-                  ASSIGNING FIELD-SYMBOL(<mapped_booking>).
-  IF <mapped_booking>-BookingId IS INITIAL.
-        max_booking_id += 10.
-        <mapped_booking>-BookingId = max_booking_Id.
-   ENDIF.
-   ENDLOOP.
-   ENDLOOP.
-ENDLOOP.
-  ENDMETHOD.
+  "Step 3: Process each Travel separately
+  LOOP AT entities ASSIGNING FIELD-SYMBOL(<travel_group>)
+       GROUP BY <travel_group>-TravelId.
+
+    "Reset max booking ID for every Travel
+    CLEAR max_booking_id.
+
+
+    "Step 4: Find highest existing Booking ID
+    LOOP AT lt_bookings INTO DATA(ls_booking)
+         USING KEY entity
+         WHERE source-TravelId = <travel_group>-TravelId.
+
+      IF max_booking_id < ls_booking-target-BookingId.
+
+        max_booking_id = ls_booking-target-BookingId.
+
+      ENDIF.
+
+    ENDLOOP.
+
+
+    "Step 5: Check Booking IDs coming in the current request
+    LOOP AT GROUP <travel_group>
+         ASSIGNING FIELD-SYMBOL(<travel>).
+
+      LOOP AT <travel>-%target
+           INTO DATA(ls_target).
+
+        IF max_booking_id < ls_target-BookingId.
+
+          max_booking_id = ls_target-BookingId.
+
+        ENDIF.
+
+      ENDLOOP.
+
+    ENDLOOP.
+
+
+    "Step 6: Assign new Booking IDs
+    LOOP AT GROUP <travel_group>
+         ASSIGNING <travel>.
+
+      LOOP AT <travel>-%target
+           ASSIGNING FIELD-SYMBOL(<booking_wo_numbers>).
+
+        APPEND CORRESPONDING #( <booking_wo_numbers> )
+          TO mapped-booking
+          ASSIGNING FIELD-SYMBOL(<mapped_booking>).
+
+        IF <mapped_booking>-BookingId IS INITIAL.
+
+          max_booking_id += 10.
+
+          <mapped_booking>-BookingId = max_booking_id.
+
+        ENDIF.
+
+      ENDLOOP.
+
+    ENDLOOP.
+
+  ENDLOOP.
+
+ENDMETHOD.
 ENDCLASS.

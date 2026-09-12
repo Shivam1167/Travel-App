@@ -5,6 +5,8 @@ strict ( 2 );
 
 //defining the behaviour definition
 define behavior for ZSS_TRAVEL_BO alias Travel
+// moving link here for travel behaviour pool
+implementation in class zbp_ss_travel_bo unique
 //because f/w will create code for CRUD, tell f/w which db table it has to interact
 persistent table /dmo/travel_m
 //which entity is considered as super entity for lock mechanism
@@ -20,7 +22,8 @@ early numbering
   create ( authorization : global );
   update;
   delete;
-//  field ( readonly ) TravelId;
+  field ( readonly ) TravelId;
+  field ( mandatory ) BeginDate, EndDate, Description, AgencyId, CustomerId;
 //  direct booking without a Travel is not possible
   association _Booking { create; }
 
@@ -44,6 +47,8 @@ early numbering
 }
 
 define behavior for ZSS_BOOKING_BO alias Booking
+// add a new line for new class pool so that another dev. can work on this
+ implementation in class zbp_ZSS_BOOKING_BO unique
 persistent table /dmo/booking_m
 lock dependent by _Travel
 authorization dependent by _Travel
@@ -82,7 +87,7 @@ early numbering
 {
   update;
   delete;
-  field ( readonly ) TravelId, BookingId;
+  field ( readonly ) TravelId, BookingId, BookingSupplementId;
   association _Travel;
   association _Booking;
 
