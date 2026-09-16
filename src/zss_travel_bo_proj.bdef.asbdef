@@ -5,7 +5,9 @@ define behavior for ZSS_TRAVEL_BO_PROJ alias Travel
 {
   use create;
   use update;
-//  use delete;
+  use delete;
+
+  use action copyTravel;
 
   use association _Booking { create; }
 }
