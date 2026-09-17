@@ -1,0 +1,5 @@
+CLASS zbp_zss_bookingsupp_bo DEFINITION PUBLIC ABSTRACT FINAL FOR BEHAVIOR OF zss_travel_bo.
+ENDCLASS.
+
+CLASS zbp_zss_bookingsupp_bo IMPLEMENTATION.
+ENDCLASS.

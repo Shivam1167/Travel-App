@@ -30,6 +30,17 @@ early numbering
   //factory - instance bound - data action
   factory action copyTravel[1];
 
+  //internal action = private method for reusability
+    internal action calcTotalPrice;
+
+  //determination that update my tx buffer during interaction ( create, update)
+  determination calculateTotalPrice on modify
+                        {create; field BookingFee, CurrencyCode; }
+
+   //validation - check business data before Save
+   validation validateHeaderData on save { create; field customerid, agencyid, begindate, enddate; }
+
+
 //  direct booking without a Travel is not possible
 //  dynamic feature control
   association _Booking { create (features: instance);  }
@@ -55,7 +66,7 @@ early numbering
 
 define behavior for ZSS_BOOKING_BO alias Booking
 // add a new line for new class pool so that another dev. can work on this
- implementation in class zbp_ZSS_BOOKING_BO unique
+implementation in class zbp_ZSS_BOOKING_BO unique
 persistent table /dmo/booking_m
 lock dependent by _Travel
 authorization dependent by _Travel
@@ -65,7 +76,17 @@ early numbering
 {
   update;
   delete;
-  field ( readonly ) TravelId;
+  field ( readonly )  TravelId, Bookingid;
+  field ( features : instance ) ConnectionId;
+
+  determination calculateTotalPrice2 on modify
+                        {create; field FlightPrice, CurrencyCode; }
+
+     //ui scenario-  we want to make fiori a round trip to load total price whenever booking fee is updated
+   side effects {
+        field FlightPrice affects field _Travel.TotalPrice;
+     }
+
   association _Travel;
   association _BookSuppl { create; }
 
@@ -85,6 +106,7 @@ early numbering
 
 
 define behavior for ZSS_BOOKINGSUPP_BO alias BookSuppl
+implementation in class zbp_ZSS_BOOKINGSUPP_BO unique
 persistent table /dmo/booksuppl_m
 lock dependent by _Travel
 authorization dependent by _Travel
@@ -97,6 +119,14 @@ early numbering
   field ( readonly ) TravelId, BookingId, BookingSupplementId;
   association _Travel;
   association _Booking;
+
+  determination calculateTotalPrice on modify
+                        {create; field Price, CurrencyCode; }
+
+   //ui scenario-  we want to make fiori a round trip to load total price whenever booking fee is updated
+   side effects {
+        field Price affects field _Travel.TotalPrice;
+     }
 
   mapping for /dmo/booksuppl_m{
   travelid = travel_id;

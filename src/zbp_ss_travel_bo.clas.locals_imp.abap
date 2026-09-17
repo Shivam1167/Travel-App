@@ -12,6 +12,12 @@ CLASS lhc_Travel DEFINITION INHERITING FROM cl_abap_behavior_handler.
        keys REQUEST requested_features FOR Travel RESULT result.
     METHODS copytravel FOR MODIFY
       keys FOR ACTION travel~copytravel.
+    METHODS calctotalprice FOR MODIFY
+      keys FOR ACTION travel~calctotalprice.
+    METHODS calculatetotalprice FOR DETERMINE ON MODIFY
+      keys FOR travel~calculatetotalprice.
+    METHODS validateheaderdata FOR VALIDATE ON SAVE
+      keys FOR travel~validateheaderdata.
     METHODS earlynumbering_cba_Booking FOR NUMBERING
       entities FOR CREATE Travel\_Booking.
     METHODS earlynumbering_create FOR NUMBERING
@@ -334,6 +340,179 @@ ENDLOOP.
   MAPPED DATA(mapped_create).
 
 mapped-travel = mapped_create-travel.
+  ENDMETHOD.
+
+  METHOD calcTotalPrice.
+* Define a structure to store AMT+CURRENCY
+  TYPES: BEGIN OF ty_amount_per_Currency,
+               amount TYPE /dmo/total_price,
+               currency_code TYPE /dmo/currency_code,
+     END OF ty_amount_per_currency.
+
+
+* Create a internal table for that Structure
+   DATA: amounts_per_currency TYPE STANDARD TABLE OF ty_amount_per_currency.
+
+* First add the Booking fee to the table
+
+   READ ENTITIES OF ZSS_TRAVEL_BO IN LOCAL MODE
+     ENTITY TRAVEL
+     FIELDS ( BookingFee CurrencyCode )
+     WITH CORRESPONDING #( keys )
+     RESULT DATA(travels).
+
+
+   READ ENTITIES OF ZSS_TRAVEL_BO IN LOCAL MODE
+     ENTITY TRAVEL by \_Booking
+     FIELDS ( FlightPrice CurrencyCode )
+     WITH CORRESPONDING #( travels )
+     RESULT DATA(bookings).
+
+
+   READ ENTITIES OF ZSS_TRAVEL_BO IN LOCAL MODE
+     ENTITY booking by \_BookSuppl
+     FIELDS ( Price CurrencyCode )
+     WITH CORRESPONDING #( Bookings )
+     RESULT DATA(bookingsupplements).
+
+     "Delete all records which does not have currency code -- Throw Exception
+     DELETE travels WHERE currencycode IS INITIAL.
+     DELETE bookings WHERE currencycode IS INITIAL.
+     DELETE bookingsupplements WHERE currencycode IS INITIAL.
+
+     "Total amount will be calculated by summing in common curr(header)
+     LOOP AT travels ASSIGNING FIELD-SYMBOL(<travels>).
+
+     "Set our first value in internal table for booking fee which comes from header
+     amounts_per_currency = value #( ( amount = <travels>-BookingFee Currency_code = <travels>-CurrencyCode ) ).
+
+     "Loop at booking data and accumulate all bookings total in each currency
+
+     LOOP AT bookings INTO DATA(booking) WHERE travelid = <travels>-Travelid.
+
+      COLLECT value ty_amount_per_currency( amount = booking-FlightPrice currency_code = booking-CurrencyCode )
+         INTO amounts_per_currency.
+
+      ENDLOOP.
+
+      LOOP AT bookingsupplements INTO DATA(supplement) where travelid = <travels>-Travelid.
+
+      COLLECT value ty_amount_per_currency( amount = supplement-Price currency_code = supplement-CurrencyCode )
+         INTO amounts_per_currency.
+
+      ENDLOOP.
+
+     ENDLOOP.
+
+     "Loop at each record in our temp table, compare currency at header , if not match convert and total
+
+     LOOP AT amounts_per_currency INTO DATA(amount_per_currency).
+
+     IF amount_per_currency-currency_code = <travels>-CurrencyCode.
+      <travels>-TotalPrice += amount_per_currency-amount.
+
+      else.
+
+      "Currency Conversion
+      /dmo/cl_flight_amdp=>convert_currency(
+        EXPORTING
+          iv_amount               = amount_per_currency-amount
+          iv_currency_code_source = amount_per_currency-currency_code
+          iv_currency_code_target = <travels>-CurrencyCode
+          iv_exchange_rate_date   = cl_abap_context_info=>get_system_date(  )
+        IMPORTING
+          ev_amount               =  data(total_amount)
+      ).
+
+            <travels>-TotalPrice += total_amount.
+        ENDIF.
+        ENDLOOP.
+
+    "EML to update data in database for the current travel request
+    MODIFY ENTITIES OF ZSS_TRAVEL_BO IN LOCAL MODE
+    ENTITY TRAVEL
+       UPDATE FIELDS ( totalprice )
+       WITH CORRESPONDING #( travels ).
+
+
+
+
+
+
+
+  ENDMETHOD.
+
+  METHOD calculateTotalPrice.
+
+  MODIFY ENTITIES OF ZSS_TRAVEL_BO  IN LOCAL MODE
+  ENTITY Travel
+  EXECUTE calcTotalPrice
+  FROM CORRESPONDING #( keys ).
+
+  ENDMETHOD.
+
+
+  METHOD validateHeaderData.
+
+    READ ENTITIES OF ZSS_TRAVEL_BO  IN LOCAL MODE
+  ENTITY Travel
+  fields ( customerid begindate enddate agencyid )
+  WITH CORRESPONDING #( keys )
+  RESULT DATA(lt_travel).
+
+"Declare a internal table of unique customer id's which needs to be validated
+
+DATA customers TYPE SORTED TABLE OF /dmo/customer WITH UNIQUE KEY customer_id.
+
+LOOP AT lt_travel INTO DATA(ls_travel).
+
+"Unique customer id's in a table
+customers = CORRESPONDING #( lt_travel DISCARDING DUPLICATES MAPPING
+                                         customer_id = customerid except *
+                                          ).
+
+                    DELETE customers where customer_id IS INITIAL.
+
+
+    "Call DB to fetch valid customers from master data table
+    IF customers IS NOT INITIAL.
+    SELECT FROM /dmo/customer fields customer_id
+           FOR ALL ENTRIES IN @customers
+           where customer_id = @customers-customer_id
+           INTO TABLE @data(lt_db_customers).
+
+
+       ENDIF.
+
+     IF ( ls_travel-CustomerId IS INITIAL OR
+        NOT line_exists( lt_db_customers[ customer_id = ls_travel-CustomerId ] )
+        ).
+
+      APPEND VALUE #( %tky = ls_travel-%tky ) to failed-travel.
+      APPEND VALUE #( %tky = ls_travel-%tky
+                      %element-customerid = if_abap_behv=>mk-on
+                      %msg = new /dmo/cm_flight_messages(
+                      textid =  /dmo/cm_flight_messages=>customer_unkown
+                      customer_id = ls_travel-CustomerId
+                      severity = if_abap_behv_message=>severity-error
+                      )
+
+                  ) to reported-travel.
+
+
+     ENDIF.
+
+
+
+
+
+
+ ENDLOOP.
+
+
+
+
+
   ENDMETHOD.
 
 ENDCLASS.
