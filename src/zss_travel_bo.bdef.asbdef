@@ -3,6 +3,9 @@ managed implementation in class zbp_ss_travel_bo unique;
 //best practice which compile our code in strict mode 2
 strict ( 2 );
 
+//enable draft support
+with draft;
+
 //defining the behaviour definition
 define behavior for ZSS_TRAVEL_BO alias Travel
 // moving link here for travel behaviour pool
@@ -11,8 +14,12 @@ implementation in class zbp_ss_travel_bo unique
 persistent table /dmo/travel_m
 //which entity is considered as super entity for lock mechanism
 lock master
+//mention total etag
+total etag LastChangedAt
 //AUTHORITY-CHECK to ensure that a valid user is performing tas on our Tx.
 authorization master ( instance )
+//declare draft table-
+draft table zss_draft_table
 //to manage concurrency control
 etag master LastChangedAt
 //early numbering to generate travel id
@@ -22,6 +29,13 @@ early numbering
   create ( authorization : global );
   update;
   delete;
+
+  //enable draft actions- in future we can use code to trigger w/f, send email..
+  draft determine action Prepare;
+  draft action Edit;
+  draft action Resume;
+  draft action Activate;
+  draft action Discard;
 
   //static feature control
   field ( readonly ) TravelId;
@@ -34,16 +48,29 @@ early numbering
     internal action calcTotalPrice;
 
   //determination that update my tx buffer during interaction ( create, update)
-  determination calculateTotalPrice on modify
+  determination calculateTotalPrice on save
                         {create; field BookingFee, CurrencyCode; }
 
    //validation - check business data before Save
    validation validateHeaderData on save { create; field customerid, agencyid, begindate, enddate; }
 
+   //determine action-
+    determine action validateCustomer { validation validateHeaderData; }
+
+    //ui- scenario-  we want to make fiori round trip to load total price whenever booking fee is updated
+    side effects {
+    field BookingFee affects field TotalPrice;
+
+    //we cannot trigger direct validation when user change the customer id
+    //since we want to validate data on FLY while user id editing draft and show relevant message
+    // we can create determine action and add it in side effect
+    determine action validateCustomer executed on field CustomerId affects messages;
+    }
+
 
 //  direct booking without a Travel is not possible
 //  dynamic feature control
-  association _Booking { create (features: instance);  }
+  association _Booking { create (features: instance); with draft; }
 
   mapping for /dmo/travel_m{
   travelid = travel_id;
@@ -68,6 +95,9 @@ define behavior for ZSS_BOOKING_BO alias Booking
 // add a new line for new class pool so that another dev. can work on this
 implementation in class zbp_ZSS_BOOKING_BO unique
 persistent table /dmo/booking_m
+//define table to store booking draft data
+draft table zss_book_dtable
+
 lock dependent by _Travel
 authorization dependent by _Travel
 etag master LastChangedAt
@@ -88,7 +118,7 @@ early numbering
      }
 
   association _Travel;
-  association _BookSuppl { create; }
+  association _BookSuppl { create; with draft;}
 
   mapping for /dmo/booking_m{
   TravelId = travel_id;
@@ -108,6 +138,9 @@ early numbering
 define behavior for ZSS_BOOKINGSUPP_BO alias BookSuppl
 implementation in class zbp_ZSS_BOOKINGSUPP_BO unique
 persistent table /dmo/booksuppl_m
+//Draft table for Booking Supplement
+draft table zss_suppl_dtable
+
 lock dependent by _Travel
 authorization dependent by _Travel
 etag master LastChangedAt

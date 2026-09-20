@@ -462,7 +462,8 @@ mapped-travel = mapped_create-travel.
 
 "Declare a internal table of unique customer id's which needs to be validated
 
-DATA customers TYPE SORTED TABLE OF /dmo/customer WITH UNIQUE KEY customer_id.
+DATA : customers TYPE SORTED TABLE OF /dmo/customer WITH UNIQUE KEY customer_id,
+       agencies TYPE SORTED TABLE OF /dmo/agency WITH UNIQUE KEY agency_id.
 
 LOOP AT lt_travel INTO DATA(ls_travel).
 
@@ -471,8 +472,12 @@ customers = CORRESPONDING #( lt_travel DISCARDING DUPLICATES MAPPING
                                          customer_id = customerid except *
                                           ).
 
-                    DELETE customers where customer_id IS INITIAL.
+agencies = CORRESPONDING #( lt_travel DISCARDING DUPLICATES MAPPING
+                                         agency_id = agencyid except *
+                                          ).
 
+                    DELETE customers where customer_id IS INITIAL.
+                     DELETE agencies where agency_id IS INITIAL.
 
     "Call DB to fetch valid customers from master data table
     IF customers IS NOT INITIAL.
@@ -480,6 +485,15 @@ customers = CORRESPONDING #( lt_travel DISCARDING DUPLICATES MAPPING
            FOR ALL ENTRIES IN @customers
            where customer_id = @customers-customer_id
            INTO TABLE @data(lt_db_customers).
+
+
+       ENDIF.
+
+     IF agencies IS NOT INITIAL.
+    SELECT FROM /dmo/agency fields agency_id
+           FOR ALL ENTRIES IN @agencies
+           where agency_id = @agencies-agency_id
+           INTO TABLE @data(lt_db_agencies).
 
 
        ENDIF.
@@ -502,8 +516,74 @@ customers = CORRESPONDING #( lt_travel DISCARDING DUPLICATES MAPPING
 
      ENDIF.
 
+"Validate Agency--
+    IF ( ls_travel-AgencyId IS INITIAL OR
+        NOT line_exists( lt_db_agencies[ agency_id = ls_travel-AgencyId ] )
+        ).
+
+      APPEND VALUE #( %tky = ls_travel-%tky ) to failed-travel.
+      APPEND VALUE #( %tky = ls_travel-%tky
+                      %element-agencyid = if_abap_behv=>mk-on
+                      %msg = new /dmo/cm_flight_messages(
+                      textid =  /dmo/cm_flight_messages=>agency_unkown
+                      customer_id = ls_travel-AgencyId
+                      severity = if_abap_behv_message=>severity-error
+                      )
+
+                  ) to reported-travel.
 
 
+     ENDIF.
+     "2. Check if start and end date are not blank
+     IF ( ls_travel-BeginDate IS INITIAL OR ls_travel-EndDate IS INITIAL ).
+
+
+      APPEND VALUE #( %tky = ls_travel-%tky ) to failed-travel.
+      APPEND VALUE #( %tky = ls_travel-%tky
+                      %element-begindate = if_abap_behv=>mk-on
+                      %element-enddate = if_abap_behv=>mk-on
+                      %msg = new /dmo/cm_flight_messages(
+                      textid = value #( msgid = 'SY' msgno = 499 attr1 = 'the date cannot be empty' )
+                      severity = if_abap_behv_message=>severity-error
+                      )
+
+                  ) to reported-travel.
+
+      ENDIF.
+
+   "3.Begin Date must be less than end date--
+
+     IF ( ls_travel-BeginDate > ls_travel-EndDate ).
+
+
+      APPEND VALUE #( %tky = ls_travel-%tky ) to failed-travel.
+      APPEND VALUE #( %tky = ls_travel-%tky
+                      %element-begindate = if_abap_behv=>mk-on
+                      %element-enddate = if_abap_behv=>mk-on
+                      %msg = new /dmo/cm_flight_messages(
+                      textid = /dmo/cm_flight_messages=>begin_date_bef_end_date
+                      severity = if_abap_behv_message=>severity-error
+                      )
+
+                  ) to reported-travel.
+
+      ENDIF.
+
+       "4.Begin Date must be >= today--
+       IF ( ls_travel-BeginDate < cl_abap_Context_info=>get_system_date(  ) ).
+
+
+      APPEND VALUE #( %tky = ls_travel-%tky ) to failed-travel.
+      APPEND VALUE #( %tky = ls_travel-%tky
+                      %element-begindate = if_abap_behv=>mk-on
+                      %msg = new /dmo/cm_flight_messages(
+                      textid = /dmo/cm_flight_messages=>begin_date_bef_end_date
+                      severity = if_abap_behv_message=>severity-error
+                      )
+
+                  ) to reported-travel.
+
+       ENDIF.
 
 
 
