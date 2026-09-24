@@ -4,8 +4,9 @@ use draft;
 use side effects;
 
 define behavior for ZSS_TRAVEL_BO_PROJ alias Travel
+implementation in class zbp_ss_trpoc unique
 {
-  use create;
+  use create (augment);
   use update;
   use delete;
 

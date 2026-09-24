@@ -24,5 +24,11 @@ define root view entity ZSS_TRAVEL_BO_PROJ as projection on ZSS_TRAVEL_BO
     AgencyName,
     CustomerName,
     StatusText,
-    Minion
+    Minion,
+    @ObjectModel.virtualElementCalculatedBy: 'ABAP:ZCL_SS_VE_CALC'
+    @EndUserText.label: 'CO2 Tax'
+    virtual CO2 : abap.int4,
+    @ObjectModel.virtualElementCalculatedBy: 'ABAP:ZCL_SS_VE_CALC'
+    @EndUserText.label: 'Day'
+    virtual dayofTravel : abap.char(9)
 }

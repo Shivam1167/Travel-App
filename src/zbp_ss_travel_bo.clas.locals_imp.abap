@@ -1,3 +1,18 @@
+CLASS lsc_zss_travel_bo DEFINITION INHERITING FROM cl_abap_behavior_saver.
+
+  PROTECTED SECTION.
+
+    METHODS save_modified REDEFINITION.
+
+ENDCLASS.
+
+CLASS lsc_zss_travel_bo IMPLEMENTATION.
+
+  METHOD save_modified.
+  ENDMETHOD.
+
+ENDCLASS.
+
 
 
 CLASS lhc_Travel DEFINITION INHERITING FROM cl_abap_behavior_handler.
@@ -14,7 +29,7 @@ CLASS lhc_Travel DEFINITION INHERITING FROM cl_abap_behavior_handler.
       keys FOR ACTION travel~copytravel.
     METHODS calctotalprice FOR MODIFY
       keys FOR ACTION travel~calctotalprice.
-    METHODS calculatetotalprice FOR DETERMINE ON MODIFY
+    METHODS calculatetotalprice FOR DETERMINE ON SAVE
       keys FOR travel~calculatetotalprice.
     METHODS validateheaderdata FOR VALIDATE ON SAVE
       keys FOR travel~validateheaderdata.
@@ -28,6 +43,59 @@ ENDCLASS.
 CLASS lhc_Travel IMPLEMENTATION.
 
   METHOD get_instance_authorizations.
+
+  DATA: ls_result like line of RESULT.
+
+  "Step 1: Read the data for which we need to check
+  READ ENTITIES OF ZSS_TRAVEL_BO IN LOCAL MODE
+  ENTITY travel
+  fields ( travelid overallstatus )
+  WITH CORRESPONDING #( keys )
+  RESULT data(lt_travel)
+  FAILED data(ls_failed).
+
+  "Step 2: Loop at the data which user is trying to edit
+  LOOP AT lt_travel INTO DATA(ls_travel).
+
+  "Step 3: Check if the travel request is rejected
+  IF ( ls_travel-OverallStatus = 'X').
+     data(lv_auth) = abap_false.
+
+   "Step 4: Check if given user is Manager or not, if yes, allow edit of travel req.
+   AUTHORITY-CHECK OBJECT 'ZSS_SH_MGR'
+   ID 'ACTVT' FIELD '03'.
+   IF ( sy-subrc = 0 ).
+    lv_auth = abap_true.
+    ENDIF.
+
+    ELSE.
+     lv_auth = abap_true.
+     ENDIF.
+
+     ls_result = value #( travelid = ls_travel-TravelId
+
+            %update = COND #( when lv_auth eq abap_False
+                              then if_abap_behv=>auth-unauthorized
+                              else if_abap_behv=>auth-allowed
+
+
+                           )
+
+            %action-Edit = COND #( when lv_auth eq abap_false
+                                   then if_abap_behv=>auth-unauthorized
+                                   else if_abap_behv=>auth-allowed
+
+                                  )
+
+                        ).
+
+          APPEND ls_result TO result.
+
+          ENDLOOP.
+
+
+
+
 
   ENDMETHOD.
 
@@ -124,7 +192,8 @@ CLASS lhc_Travel IMPLEMENTATION.
      travel_id_max += 1.
      entity-TravelId = travel_id_max.
 
-     APPEND value #( %cid = entity-%cid %key = entity-%key ) to mapped-travel.
+     APPEND value #( %cid = entity-%cid %key = entity-%key
+                     %is_draft = entity-%is_draft ) to mapped-travel.
      ENDLOOP.
 
 
