@@ -28,8 +28,8 @@ early numbering
 with additional save
 {
   //AUTHORITY-CHECK to ensure that a valid user is performing tas on our Tx.
-  create ( authorization : global );
-  update;
+  create ( authorization : global, precheck );
+  update (precheck);
   delete;
 
   //enable draft actions- in future we can use code to trigger w/f, send email..
@@ -45,6 +45,8 @@ with additional save
 
   //factory - instance bound - data action
   factory action copyTravel[1];
+  action (features: instance ) acceptTravel result[1] $self;
+  action (features: instance ) rejectTravel result[1] $self;
 
   //internal action = private method for reusability
     internal action calcTotalPrice;
@@ -73,6 +75,7 @@ with additional save
 //  direct booking without a Travel is not possible
 //  dynamic feature control
   association _Booking { create (features: instance); with draft; }
+  association _Attachment {create; with draft; }
 
   mapping for /dmo/travel_m{
   travelid = travel_id;
@@ -171,6 +174,43 @@ early numbering
   price = price;
   CurrencyCode = currency_code;
   LastChangedAt = last_changed_at;
+
+  }
+}
+
+define behavior for ZSS_TBLATTACH alias Attachment
+// add a new line for new class pool so that another dev. can work on this
+persistent table ZSS_ATTACH_TBL
+//define table to store booking draft data
+draft table zss_atta_dtable
+
+lock dependent by _Travel
+authorization dependent by _Travel
+etag master LastChangedAt
+
+{
+  update;
+  delete;
+  field ( readonly )  TravelId;
+  field ( numbering : managed ) id;
+
+
+  association _Travel {with draft;}
+
+
+  mapping for ZSS_ATTACH_TBL{
+  TravelId = travel_id;
+  id = id;
+  Attachment = attachment;
+  Filename = filename;
+  Filetype = filetype;
+  Memo = memo;
+  LastChangedAt = last_changed_at;
+  LocalCreatedAt = local_created_at;
+  LocalCreatedBy = local_created_by;
+  LocalLastChangedAt = local_last_changed_at;
+  LocalLastChangedBy = local_last_changed_by;
+
 
   }
 }

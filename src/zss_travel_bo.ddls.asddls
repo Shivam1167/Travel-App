@@ -4,6 +4,7 @@
 @VDM.viewType: #BASIC
 define root view entity ZSS_TRAVEL_BO as select from /dmo/travel_m
 composition[1..*] of  ZSS_BOOKING_BO as _Booking
+composition[1..*] of  ZSS_TBLATTACH as _Attachment
 association [1] to /DMO/I_Agency as _Agency on
   $projection.AgencyId = _Agency.AgencyID
 association[1] to /DMO/I_Customer as _Customer on
@@ -88,6 +89,7 @@ association[1] to /DMO/I_Overall_Status_VH as _OverallStatus on
     _Customer,
     _Currency,
     _OverallStatus,
-    _Booking
+    _Booking,
+    _Attachment
     
 }

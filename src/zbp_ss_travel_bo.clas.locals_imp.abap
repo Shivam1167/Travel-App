@@ -9,6 +9,42 @@ ENDCLASS.
 CLASS lsc_zss_travel_bo IMPLEMENTATION.
 
   METHOD save_modified.
+
+  DATA: travel_log_update TYPE STANDARD TABLE OF /dmo/log_travel,
+        final_changes TYPE STANDARD TABLE OF /dmo/log_travel.
+
+
+      "Step 1: Check if the operation is update only.
+
+      IF update-travel IS NOT INITIAL.
+         travel_log_update = CORRESPONDING #( update-travel mapping travel_id = travelid ).
+
+        LOOP AT update-travel ASSIGNING FIELD-SYMBOL(<travel_log_update>).
+
+        ASSIGN travel_log_update[ travel_id = <travel_log_update>-TravelId ]
+               TO FIELD-SYMBOL(<travel_log_db>).
+
+               GET TIME STAMP FIELD <travel_log_db>-created_at.
+
+               IF <travel_log_update>-%control-CustomerId = if_abap_behv=>mk-on.
+               <travel_log_db>-change_id = cl_system_uuid=>create_uuid_x16_static(  ).
+               <travel_log_db>-changed_field_name = 'shivam_customer'.
+               <travel_log_db>-changed_value = <travel_log_update>-CustomerId.
+               APPEND <travel_log_db> to final_changes.
+               ENDIF.
+
+               IF <travel_log_update>-%control-CustomerId = if_abap_behv=>mk-on.
+               <travel_log_db>-change_id = cl_system_uuid=>create_uuid_x16_static(  ).
+               <travel_log_db>-changed_field_name = 'shivam_agency'.
+               <travel_log_db>-changed_value = <travel_log_update>-AgencyId.
+               APPEND <travel_log_db> to final_changes.
+               ENDIF.
+
+        ENDLOOP.
+
+        INSERT /dmo/log_travel FROM TABLE @final_changes.
+        ENDIF.
+
   ENDMETHOD.
 
 ENDCLASS.
@@ -33,6 +69,35 @@ CLASS lhc_Travel DEFINITION INHERITING FROM cl_abap_behavior_handler.
       keys FOR travel~calculatetotalprice.
     METHODS validateheaderdata FOR VALIDATE ON SAVE
       keys FOR travel~validateheaderdata.
+    METHODS precheck_create FOR PRECHECK
+      entities FOR CREATE travel.
+
+    METHODS precheck_update FOR PRECHECK
+      entities FOR UPDATE travel.
+    METHODS accepttravel FOR MODIFY
+      keys FOR ACTION travel~accepttravel RESULT result.
+
+    METHODS rejecttravel FOR MODIFY
+      keys FOR ACTION travel~rejecttravel RESULT result.
+
+     "A reusable private method with matching io parms and types to reuse code
+
+     TYPES: t_entity_create TYPE TABLE FOR CREATE ZSS_TRAVEL_BO\\Travel,
+            t_entity_update TYPE TABLE FOR UPDATE ZSS_TRAVEL_BO\\Travel,
+            t_entity_failed TYPE RESPONSE FOR FAILED EARLY ZSS_TRAVEL_BO,
+            t_entity_reported TYPE RESPONSE FOR REPORTED EARLY ZSS_TRAVEL_BO.
+
+            METHODS precheck_shivam_reuse
+
+             IMPORTING
+               entity_c TYPE t_entity_create OPTIONAL
+               entity_u TYPE t_entity_update OPTIONAL
+
+              EXPORTING
+               failed TYPE t_entity_failed
+               reported type t_entity_reported.
+
+
     METHODS earlynumbering_cba_Booking FOR NUMBERING
       entities FOR CREATE Travel\_Booking.
     METHODS earlynumbering_create FOR NUMBERING
@@ -305,6 +370,16 @@ ENDMETHOD.
 
         %tky = travel-%tky
         %assoc-_Booking = lv_allow
+        %action-acceptTravel = COND #( WHEN travel-OverallStatus = 'A'
+                                       then if_abap_behv=>fc-o-disabled
+                                       else if_abap_behv=>fc-o-enabled
+                                       )
+
+       %action-rejectTravel = COND #( WHEN travel-OverallStatus = 'X'
+        then if_abap_behv=>fc-o-disabled
+        else if_abap_behv=>fc-o-enabled
+
+        )
    ) ).
 
 
@@ -661,6 +736,344 @@ agencies = CORRESPONDING #( lt_travel DISCARDING DUPLICATES MAPPING
 
 
 
+
+  ENDMETHOD.
+
+    METHOD precheck_create.
+
+    precheck_shivam_reuse(
+      EXPORTING
+        entity_c = entities
+      IMPORTING
+        failed   = failed
+        reported = reported
+    ).
+
+  ENDMETHOD.
+
+
+  METHOD precheck_update.
+
+    precheck_shivam_reuse(
+      EXPORTING
+        entity_u = entities
+      IMPORTING
+        failed   = failed
+        reported = reported
+    ).
+
+  ENDMETHOD.
+
+
+  METHOD precheck_shivam_reuse.
+
+    "Step 1: Data declaration
+    DATA: entities TYPE t_entity_update,
+          operation TYPE char1,
+          agencies TYPE SORTED TABLE OF /dmo/agency
+            WITH UNIQUE KEY agency_id,
+          customers TYPE SORTED TABLE OF /dmo/customer
+            WITH UNIQUE KEY customer_id.
+
+    "Step 2: Check whether CREATE or UPDATE data was passed
+    ASSERT NOT ( entity_c IS INITIAL AND entity_u IS INITIAL ).
+
+    "Step 3: Perform the validation only if the agency or customer was changed.
+    If entity_c IS NOT INITIAL.
+      entities = CORRESPONDING #( entity_c ).
+      operation = if_abap_behv=>op-m-create.
+      else.
+        entities = CORRESPONDING #( entity_u ).
+        operation = if_abap_behv=>op-m-update.
+       ENDIF.
+
+       DELETE entities where %control-AgencyId = if_abap_behv=>mk-off and
+                             %control-CustomerId = if_abap_behv=>mk-off.
+
+      "Step 4: Get all the unique agencies and customers in our itab to query
+       agencies = CORRESPONDING #( entities DISCARDING DUPLICATES MAPPING agency_id = agencyid EXCEPT * ).
+       customers = CORRESPONDING #( entities DISCARDING DUPLICATES MAPPING customer_id = customerid EXCEPT * ).
+
+       "Step 5: Check the agency and customer id in DB table and fetch the valid one's - get the country codes
+
+       SELECT FROM /dmo/agency fields agency_id, country_code
+        for ALL ENTRIES IN @agencies WHERE agency_id = @agencies-agency_id
+        INTO TABLE @data(agency_country_codes).
+        SELECT FROM /dmo/customer FIELDS customer_id, country_code
+         FOR ALL ENTRIES IN @customers WHERE customer_id = @customers-customer_id
+         INTO TABLE @data(customer_country_codes).
+
+       LOOP AT entities INTO DATA(entity).
+
+  READ TABLE agency_country_codes
+    WITH KEY agency_id = entity-AgencyId
+    INTO DATA(ls_agency).
+
+*  CHECK sy-subrc = 0.
+
+  READ TABLE customer_country_codes
+    WITH KEY customer_id = entity-CustomerId
+    INTO DATA(ls_customer).
+
+*  CHECK sy-subrc = 0.
+
+  IF ls_agency-country_code <> ls_customer-country_code.
+
+    APPEND VALUE #(
+      %cid = COND #( WHEN operation = IF_ABAP_BEHV=>op-m-create then entity-%cid_ref )
+      %is_draft = entity-%is_draft
+      %fail-cause = if_abap_behv=>cause-conflict
+    ) TO failed-travel.
+
+    APPEND VALUE #(
+      %cid = COND #( WHEN operation = IF_ABAP_BEHV=>op-m-create then entity-%cid_ref )
+      %is_draft = entity-%is_draft
+      %element-CustomerId = if_abap_behv=>mk-on
+      %element-AgencyId   = if_abap_behv=>mk-on
+
+      %msg = new /dmo/cm_flight_messages(
+        textid = VALUE #(
+          msgid = 'SY'
+          msgno = 499
+          attr1 = entity-CustomerId
+          attr2 = 'is not have same country as agency'
+          attr3 = entity-AgencyId
+        )
+        severity = if_abap_behv_message=>severity-error
+      )
+    ) TO reported-travel.
+
+  ENDIF.
+
+ENDLOOP.
+
+
+*    "Step 3: Determine whether this is CREATE or UPDATE
+*    IF entity_c IS NOT INITIAL.
+*
+*      lt_entities = CORRESPONDING #( entity_c ).
+*
+*      lv_operation = if_abap_behv=>op-m-create.
+*
+*    ELSE.
+*
+*      lt_entities = CORRESPONDING #( entity_u ).
+*
+*      lv_operation = if_abap_behv=>op-m-update.
+*
+*    ENDIF.
+*
+*
+*    "Step 4: Remove entries where neither Agency nor Customer was changed
+*    DELETE lt_entities WHERE
+*      %control-AgencyId = if_abap_behv=>mk-off
+*      AND
+*      %control-CustomerId = if_abap_behv=>mk-off.
+*
+*
+*    "Step 5: Get unique Agency IDs
+*    lt_agencies = CORRESPONDING #(
+*      lt_entities
+*      DISCARDING DUPLICATES
+*      MAPPING agency_id = AgencyId
+*      EXCEPT *
+*    ).
+*
+*
+*    "Step 6: Get unique Customer IDs
+*    lt_customers = CORRESPONDING #(
+*      lt_entities
+*      DISCARDING DUPLICATES
+*      MAPPING customer_id = CustomerId
+*      EXCEPT *
+*    ).
+*
+*
+*    "Step 7: Delete blank Agency IDs
+*    DELETE lt_agencies
+*      WHERE agency_id IS INITIAL.
+*
+*
+*    "Step 8: Delete blank Customer IDs
+*    DELETE lt_customers
+*      WHERE customer_id IS INITIAL.
+*
+*
+*    "Step 9: Read valid Agencies from database
+*    DATA lt_agency_country_codes TYPE STANDARD TABLE OF /dmo/agency.
+*
+*    IF lt_agencies IS NOT INITIAL.
+*
+*      SELECT FROM /dmo/agency
+*        FIELDS agency_id,
+*               country_code
+*        FOR ALL ENTRIES IN @lt_agencies
+*        WHERE agency_id = @lt_agencies-agency_id
+*        INTO TABLE @lt_agency_country_codes.
+*
+*    ENDIF.
+*
+*
+*    "Step 10: Read valid Customers from database
+*    DATA lt_customer_country_codes TYPE STANDARD TABLE OF /dmo/customer.
+*
+*    IF lt_customers IS NOT INITIAL.
+*
+*      SELECT FROM /dmo/customer
+*        FIELDS customer_id,
+*               country_code
+*        FOR ALL ENTRIES IN @lt_customers
+*        WHERE customer_id = @lt_customers-customer_id
+*        INTO TABLE @lt_customer_country_codes.
+*
+*    ENDIF.
+*
+*
+*    "Step 11: Compare Agency and Customer country
+*    LOOP AT lt_entities INTO DATA(ls_entity).
+*
+*      READ TABLE lt_agency_country_codes
+*        WITH KEY agency_id = ls_entity-AgencyId
+*        INTO DATA(ls_agency).
+*
+*      IF sy-subrc <> 0.
+*        CONTINUE.
+*      ENDIF.
+*
+*
+*      READ TABLE lt_customer_country_codes
+*        WITH KEY customer_id = ls_entity-CustomerId
+*        INTO DATA(ls_customer).
+*
+*      IF sy-subrc <> 0.
+*        CONTINUE.
+*      ENDIF.
+*
+*
+*      "Step 12: Check whether both belong to same country
+*      IF ls_agency-country_code <> ls_customer-country_code.
+*
+*
+*        "Mark entity as failed
+*        IF lv_operation = if_abap_behv=>op-m-create.
+*
+*          APPEND VALUE #(
+*            %cid = ls_entity-%cid
+*            %fail-cause = if_abap_behv=>cause-conflict
+*          ) TO failed-travel.
+*
+*        ELSE.
+*
+*          APPEND VALUE #(
+*            %tky = ls_entity-%tky
+*            %fail-cause = if_abap_behv=>cause-conflict
+*          ) TO failed-travel.
+*
+*        ENDIF.
+*
+*
+*        "Return error message
+*        IF lv_operation = if_abap_behv=>op-m-create.
+*
+*          APPEND VALUE #(
+*            %cid = ls_entity-%cid
+*            %is_draft = ls_entity-%is_draft
+*            %element-CustomerId = if_abap_behv=>mk-on
+*            %element-AgencyId   = if_abap_behv=>mk-on
+*
+*            %msg = new /dmo/cm_flight_messages(
+*              textid = VALUE #(
+*                msgid = 'SY'
+*                msgno = 499
+*                attr1 = ls_entity-CustomerId
+*                attr2 = 'does not have the same country as agency'
+*                attr3 = ls_entity-AgencyId
+*              )
+*              severity = if_abap_behv_message=>severity-error
+*            )
+*          ) TO reported-travel.
+*
+*        ELSE.
+*
+*          APPEND VALUE #(
+*            %tky = ls_entity-%tky
+*            %is_draft = ls_entity-%is_draft
+*            %element-CustomerId = if_abap_behv=>mk-on
+*            %element-AgencyId   = if_abap_behv=>mk-on
+*
+*            %msg = new /dmo/cm_flight_messages(
+*              textid = VALUE #(
+*                msgid = 'SY'
+*                msgno = 499
+*                attr1 = ls_entity-CustomerId
+*                attr2 = 'does not have the same country as agency'
+*                attr3 = ls_entity-AgencyId
+*              )
+*              severity = if_abap_behv_message=>severity-error
+*            )
+*          ) TO reported-travel.
+*
+*        ENDIF.
+*
+*      ENDIF.
+*
+*    ENDLOOP.
+
+  ENDMETHOD.
+  METHOD acceptTravel.
+
+  MODIFY ENTITIES OF ZSS_TRAVEL_BO IN LOCAL MODE
+  ENTITY TRAVEL
+  UPDATE FIELDS ( OverallStatus )
+  WITH VALUE #( FOR key in KEYS (
+                           %tky = key-%tky
+                           %is_draft = key-%is_draft
+                           OverallStatus = 'A'
+
+           ) ).
+
+
+      "Read the BO entities again and send back to the UI.
+
+   READ ENTITIES OF ZSS_TRAVEL_BO IN LOCAL MODE
+  ENTITY TRAVEL
+  ALL FIELDS
+  WITH CORRESPONDING #( keys )
+       result data(lt_results).
+
+          result = VALUE #( for travel in lt_results ( %tky = travel-%tky
+                                                       %param = travel
+
+          ) ).
+
+
+  ENDMETHOD.
+
+  METHOD rejectTravel.
+
+  MODIFY ENTITIES OF ZSS_TRAVEL_BO IN LOCAL MODE
+  ENTITY TRAVEL
+  UPDATE FIELDS ( OverallStatus )
+  WITH VALUE #( FOR key in KEYS (
+                           %tky = key-%tky
+                           %is_draft = key-%is_draft
+                           OverallStatus = 'X'
+
+           ) ).
+
+
+      "Read the BO entities again and send back to the UI.
+
+   READ ENTITIES OF ZSS_TRAVEL_BO IN LOCAL MODE
+  ENTITY TRAVEL
+  ALL FIELDS
+  WITH CORRESPONDING #( keys )
+       result data(lt_results).
+
+          result = VALUE #( for travel in lt_results ( %tky = travel-%tky
+                                                       %param = travel
+
+          ) ).
 
   ENDMETHOD.
 

@@ -114,6 +114,11 @@ annotate entity ZSS_TRAVEL_BO_PROJ with
   @UI.fieldGroup: [{ position: 40, qualifier: 'superman' }]
   @UI.dataPoint: { qualifier: 'statusData', title: 'Travel Status', criticality: 'Minion'}
   OverallStatus;
+  
+  @UI.lineItem: [ { position: 80, importance: #HIGH } ]
+  dayofTravel;
+  @UI.lineItem: [ { position: 90, importance: #HIGH } ]
+  co2tax;
 
 
 }

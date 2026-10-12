@@ -20,6 +20,7 @@ implementation in class zbp_ss_trpoc unique
   use action copyTravel;
 
   use association _Booking { create; with draft;}
+  use association _Attachment { create; with draft;}
 }
 
 define behavior for ZSS_BOOKING_BO_PROJ alias Booking
@@ -38,4 +39,12 @@ define behavior for ZSS_BOOKINGSUPP_BO_PROJ alias BookSuppl
 
   use association _Travel {with draft;}
   use association _Booking {with draft;}
+}
+
+define behavior for ZSS_TBLATTACH_PROCESSOR alias Attachments
+{
+  use update;
+  use delete;
+
+  use association _Travel {with draft;}
 }

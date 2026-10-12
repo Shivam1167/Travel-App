@@ -1,0 +1,33 @@
+projection;
+strict ( 2 );
+use draft;
+
+define behavior for ZSS_TRAVELAPPROVER_BO_PROJ alias Travel
+{
+  //use create;
+  use update;
+  field (readonly) CustomerId, AgencyId, TotalPrice, BeginDate, EndDate, Description;
+  //use delete;
+
+  use action acceptTravel;
+  use action rejectTravel;
+
+  use action copyTravel;
+  //use action validateCustomer;
+
+  use action Prepare;
+  use action Edit;
+  use action Resume;
+  use action Activate;
+  use action Discard;
+
+  use association _Booking { create; with draft; }
+}
+
+define behavior for ZSS_BOOKINGAPPROVER_BO_PROJ alias Booking
+{
+  //use update;
+  //use delete;
+
+  use association _Travel;
+}
