@@ -22,6 +22,7 @@ define behavior for ZSS_TRAVELAPPROVER_BO_PROJ alias Travel
   use action Discard;
 
   use association _Booking { create; with draft; }
+
 }
 
 define behavior for ZSS_BOOKINGAPPROVER_BO_PROJ alias Booking

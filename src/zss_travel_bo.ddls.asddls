@@ -89,6 +89,7 @@ association[1] to /DMO/I_Overall_Status_VH as _OverallStatus on
     _Customer,
     _Currency,
     _OverallStatus,
+    --expose the composition child
     _Booking,
     _Attachment
     

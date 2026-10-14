@@ -43,7 +43,7 @@ annotate entity ZSS_TRAVELAPPROVER_BO_PROJ with
           id: 'fieldgroup2',
           type: #FIELDGROUP_REFERENCE,
           parentId: 'TravelCollection',
-          position: 30, //second block under collection
+          position: 30, //third block under collection
           label: 'Price Data',
           targetQualifier: 'superman' 
        
@@ -53,9 +53,19 @@ annotate entity ZSS_TRAVELAPPROVER_BO_PROJ with
        
           id: 'itemdata',
           type: #LINEITEM_REFERENCE,
-          position: 20, //second block under collection
+          position: 20, 
           label: 'Bookings',
           targetElement: '_Booking' 
+       
+       },
+       
+       { 
+       
+          id: 'attachdata',
+          type: #LINEITEM_REFERENCE,
+          position: 30, 
+          label: 'Attachments',
+          targetElement: '_Attachment' 
        
        },
        { 

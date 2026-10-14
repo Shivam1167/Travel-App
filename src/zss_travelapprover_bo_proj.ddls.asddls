@@ -18,6 +18,7 @@ define root view entity ZSS_TRAVELAPPROVER_BO_PROJ as projection on ZSS_TRAVEL_B
     /* Associations */
     _Agency,
     _Booking: redirected to composition child ZSS_BOOKINGAPPROVER_BO_PROJ,
+    _Attachment : redirected to composition child ZSS_TBLATTACH_APPROVER,
     _Currency,
     _Customer,
     _OverallStatus,
